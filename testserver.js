@@ -12,7 +12,7 @@ app.get('/style.css', function(req, res) {
     res.sendFile(path.join(__dirname, '/public/style.css'));
 });
 app.listen(8083,()=>{
-    console.log("App listening", 8084)
+    console.log("App listeningg", 8084)
 })
 
 module.exports = app;
