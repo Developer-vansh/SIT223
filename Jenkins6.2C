@@ -1,0 +1,113 @@
+pipeline {
+    agent any
+   tools {
+        nodejs 'nodejs-21'
+    }
+
+    environment {
+        SONAR_URL = "http://98.70.9.128:9000"
+    }
+    stages {
+        stage('Git Checkout') {
+            steps {
+                echo 'Checkout'
+                git branch: 'main', changelog: true, poll: false, url: 'https://github.com/Developer-vansh/SIT223'
+            }
+        }
+        stage('Install Dependencies') {
+            steps {
+                echo 'Install Dependencies'
+                sh "npm install"
+            }
+        }
+        stage('Build Docker'){
+            steps {
+                echo 'Docker Build'
+                script{
+                 withDockerRegistry(credentialsId: '8da89d64-8509-4173-9259-ea8b81a3ca54', toolName: 'docker')
+                    {
+                      sh "docker build -t firstnodejs ."
+                      sh "docker tag firstnodejs vansh2213/nodejs:latest"
+                    } 
+                }
+            }
+        }
+        stage('Unit and Integration Test') {
+            steps {
+                echo 'Unit Test'
+                sh "npx mocha test.js --exit > test.log"
+            }
+            post {
+                
+                success {
+                    emailext  subject: 'Unit Test Status - Success', 
+                              body: 'Unit Test has been completed successfully.', 
+                              to: "abhaygaba27@gmail.com",
+                              attachmentsPattern: 'test.log'
+                }
+                failure {
+                    emailext subject: 'Unit Test Status - Failure', 
+                              body: 'Unit Test has failed.', 
+                             to: "abhaygaba27@gmail.com",
+                              attachmentsPattern: 'test.log'
+                }
+            }
+        } 
+         stage('Static Code Analysis') {
+            steps {
+                script {
+                    withCredentials([string(credentialsId: 'sonarqube', variable: 'SONAR_AUTH_TOKEN')]) {
+                        sh 'npm install -g sonarqube-scanner'
+                        sh 'sonar-scanner -Dsonar.login=$SONAR_AUTH_TOKEN -Dsonar.host.url=${SONAR_URL}'
+                    }
+                }
+            }
+        }
+        stage('Security Scan') {
+            steps {
+                dependencyCheckPublisher pattern: '**/package-lock.json'
+            }
+        }
+        stage('Deploy to Staging'){
+           steps {
+                echo 'Deploy DockerContainer to Docker'
+                script{
+                 withDockerRegistry(credentialsId: '8da89d64-8509-4173-9259-ea8b81a3ca54', toolName: 'docker')
+                    {
+                       //Deploying to docker hub
+                      sh "docker push vansh2213/nodejs:latest"
+                      //Deploying to staging environment
+                        // Stop and remove the existing container
+                      sh "docker stop last-nodejs || true"
+                      sh "docker rm last-nodejs || true"
+                      // Run the new container
+                      sh "docker run -d --name last-nodejs -p 8084:8084 vansh2213/nodejs:latest"
+                    } 
+                }
+            }
+        }
+         stage('Integration Test') {
+            steps {
+                echo 'Unit Test'
+               sh "npx mocha test.js --exit --url ${"http://98.70.9.128:8084"}"
+            }
+        }
+        stage('Deploy to Production') {
+            steps {
+                echo 'Release to Azure Production environment'
+                script{
+                 withDockerRegistry(credentialsId: '8da89d64-8509-4173-9259-ea8b81a3ca54', toolName: 'docker')
+             { 
+                 // Stop and remove the existing container
+              sh "docker stop last-nodejs || true"
+              sh "docker rm last-nodejs || true"
+              // Run the new container with ports 8082 and 8084 exposed
+              sh "docker run -d --name last-nodejs -p 8082:8082 -p 8084:8084 vansh2213/nodejs:latest"}
+                    
+                }
+            }
+
+        }
+        
+    }
+}
