@@ -65,7 +65,23 @@ pipeline {
         }
         stage('Security Scan') {
             steps {
-                dependencyCheckPublisher pattern: '**/package-lock.json'
+                 echo 'Security Scan using OWASP and Trivy'
+                dependencyCheckPublisher pattern: '**/package-lock.json '
+            }
+             post {
+                
+                success {
+                    emailext  subject: 'Security Scan Status - Success', 
+                              body: 'Security Scan has been completed successfully.', 
+                              to: "abhaygaba27@gmail.com",
+                              attachLog: true
+                }
+                failure {
+                    emailext subject: 'Security Scan Status - Failure', 
+                              body: 'Security Scan has failed.', 
+                             to: "abhaygaba27@gmail.com",
+                             attachLog: true
+                }
             }
         }
         stage('Deploy to Staging'){
