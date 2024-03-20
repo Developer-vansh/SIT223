@@ -11,8 +11,8 @@ app.get('/',(req,res)=>{
 app.get('/style.css', function(req, res) {
     res.sendFile(path.join(__dirname, '/public/style.css'));
 });
-app.listen(8083,()=>{
-    console.log("App listeningg", 8084)
+app.listen(8087,()=>{
+    console.log("App listeningg", 8087)
 })
 
 module.exports = app;
